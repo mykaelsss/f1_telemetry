@@ -292,25 +292,23 @@ export default function SessionSidebar({
               {['Q1','Q2', 'Q3'].map((s) => {
                 const isSelected = selectedQualiSessions.includes(s as QualiSession)
                 const isLastSelected = isSelected && selectedQualiSessions.length === 1
-                const button = (
-                  <button
-                    className={cn(
-                      "border border-accent-green py-1 px-4 text-accent-green font-mono text-xs",
-                      isSelected && "bg-accent-green text-black",
-                      isLastSelected ? "cursor-not-allowed opacity-60" : "cursor-pointer",
-                    )}
-                    onClick={() => !isLastSelected && toggleQualiSession(s as QualiSession)}
-                  >{s}</button>
-                )
-                if (!isLastSelected) return <div key={s}>{button}</div>
                 return (
                   <Tooltip key={s}>
                     <TooltipTrigger asChild>
-                      {button}
+                      <button
+                        className={cn(
+                          "border border-accent-green py-1 px-4 text-accent-green font-mono text-xs",
+                          isSelected && "bg-accent-green text-black",
+                          isLastSelected ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+                        )}
+                        onClick={() => !isLastSelected && toggleQualiSession(s as QualiSession)}
+                      >{s}</button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      At least one session must be selected
-                    </TooltipContent>
+                    {isLastSelected && (
+                      <TooltipContent side="bottom">
+                        At least one session must be selected
+                      </TooltipContent>
+                    )}
                   </Tooltip>
                 )
               })}
