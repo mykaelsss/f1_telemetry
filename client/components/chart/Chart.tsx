@@ -137,7 +137,6 @@ export default function Chart<T extends LegendItem>({
             showMinLine: false,
             showMaxLine: false,
           },
-          minInterval: 1,
           axisLabel: {
             margin: 20,
             verticalAlignMinLabel: "bottom",

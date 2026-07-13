@@ -275,7 +275,7 @@ export default function LapChart({ teams }: LapChartProps) {
       title="Lap times · Time vs lap"
       emptyHint="Select drivers from the panel to plot their lap times."
       tooltipFormatter={tooltipFormatter}
-      yAxisFormatter={(val: number) => secondsToLapTime(val, 0)}
+      yAxisFormatter={(val: number) => secondsToLapTime(val, 1)}
       storageKey={CHART_STORAGE_KEYS.lapChart}
       series={series}
       legendItems={legendItems}
