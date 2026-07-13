@@ -11,9 +11,9 @@ from app.utils import resolve_event
 # caching until results have settled.
 SETTLE_BUFFER = timedelta(days=2)
 
-LIVE = "public, max-age=60"
-SETTLING = "public, max-age=300"
-PAST_SEASON = "public, max-age=86400, stale-while-revalidate=604800"
+LIVE = "public, no-cache"
+SETTLING = "public, max-age=1800, s-maxage=3600"
+PAST_SEASON = "public, max-age=3600, s-maxage=604800"
 
 
 def _session_end(year: int, event_id: str, identifier: str | int) -> datetime | None:
