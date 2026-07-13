@@ -30,7 +30,7 @@ export default function LapTable({ teams }: LapTableProps) {
   const [event] = useQueryState("event", DEFAULT_NUQS_OPTIONS);
   const [session] = useQueryState("session", DEFAULT_NUQS_OPTIONS);
   const [drivers] = useQueryState("drivers", DEFAULT_NUQS_OPTIONS);
-  const [laps, setLaps] = useQueryState("laps", DEFAULT_NUQS_OPTIONS);
+  const [, setLaps] = useQueryState("laps", DEFAULT_NUQS_OPTIONS);
   const [, setTab] = useQueryState("tab", DEFAULT_NUQS_OPTIONS);
   const defaultQualiSessions: QualiSession[] = ["Q", "SQ"].includes(session.toUpperCase())
     ? ["Q1", "Q2", "Q3"]
