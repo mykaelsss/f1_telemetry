@@ -10,10 +10,10 @@ import {
   SelectValue,
 } from "../ui/select";
 import { useCallback, useMemo } from "react";
-import { Driver, SelectedLap, Team } from "@/lib/types";
+import { Driver, QualiSession, SelectedLap, Team } from "@/lib/types";
 import { Skeleton } from "../ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, flattenDriverLaps } from "@/lib/utils";
 import { useSchedule } from "@/lib/hooks/useSchedule";
 import { useEventSchedule } from "@/lib/hooks/useEventSchedule";
 import { useSessionLaps } from "@/lib/hooks/useSessionLaps";
@@ -25,8 +25,8 @@ import {
   serializeSelectedLaps,
 } from "@/lib/selectedLaps";
 import { useQueryClient } from "@tanstack/react-query";
-import { useQueryState } from "nuqs";
-import { DEFAULT_NUQS_OPTIONS } from "@/lib/constants";
+import { useQueryState, parseAsArrayOf} from "nuqs";
+import { DEFAULT_NUQS_OPTIONS, parseAsQualiSession } from "@/lib/constants";
 
 const YEARS = Array.from({ length: new Date().getFullYear() - 2017 }, (_, i) =>
   String(new Date().getFullYear() - i),
@@ -48,6 +48,10 @@ export default function SessionSidebar({
   const [drivers, setDrivers] = useQueryState("drivers", DEFAULT_NUQS_OPTIONS);
   const [laps, setLaps] = useQueryState("laps", DEFAULT_NUQS_OPTIONS);
   const [, setTab] = useQueryState("tab", DEFAULT_NUQS_OPTIONS);
+  const defaultQualiSessions: QualiSession[] = ["Q", "SQ"].includes(session.toUpperCase()) 
+    ? ["Q1", "Q2", "Q3"] 
+    : []
+  const [selectedQualiSessions, setSelectedQualiSessions] = useQueryState("qualiSessions", parseAsArrayOf(parseAsQualiSession).withDefault(defaultQualiSessions).withOptions(DEFAULT_NUQS_OPTIONS))
 
   const selectedDrivers = useMemo(
     () => (drivers ? drivers.split(",") : []),
@@ -83,18 +87,20 @@ export default function SessionSidebar({
     fetchingDrivers,
   } = useSessionLaps(year, event, session, selectedDrivers, staleTime);
 
+  const flatDriverLaps = useMemo(() => flattenDriverLaps(driverLaps), [driverLaps])
+
   const compareFastestLaps = async () => {
-    const byCode = new Map(driverLaps.map((d) => [d.abbreviation, d]));
+    const byCode = new Map(flatDriverLaps.map((dl) => [dl.abbreviation, dl.laps]));
     const existing = parseSelectedLaps(laps);
 
     const proceed = (base: SelectedLap[]) => {
       const merged = [...base];
       for (const code of selectedDrivers) {
-        const dl = byCode.get(code);
-        if (!dl) continue;
+        const laps = byCode.get(code);
+        if (!laps) continue;
         let bestNum: number | null = null;
         let bestMs = Infinity;
-        for (const lap of dl.laps) {
+        for (const lap of laps) {
           const ms = lapTimeToMs(lap.lap_time);
           if (ms !== null && lap.lap_number !== null && ms < bestMs) {
             bestMs = ms;
@@ -130,6 +136,17 @@ export default function SessionSidebar({
     }
     return counts;
   }, [schedule]);
+
+  const toggleQualiSession = (s: QualiSession) => {
+    setSelectedQualiSessions(prev => {
+      const res = prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
+      if (!res.length) {
+        return prev;
+      }
+      return res;
+    }
+  )
+}
 
   return (
     <div className="shrink-0 flex flex-col">
@@ -218,7 +235,14 @@ export default function SessionSidebar({
           <Select
             value={session}
             disabled={isLoadingRound}
-            onValueChange={(val) => setSession(val)}
+            onValueChange={(val) => {
+              setSession(val)
+              if (!selectedQualiSessions.length && ['Q', 'SQ'].includes(val)) {
+                setSelectedQualiSessions(['Q1', 'Q2', 'Q3'])
+              } else if (!['Q', 'SQ'].includes(val)) {
+                setSelectedQualiSessions([])
+              }
+            }}
           >
             <SelectTrigger className="w-full rounded-none font-mono text-xs text-text-primary border-surface-border bg-surface-card">
               <SelectValue placeholder="Select session" />
@@ -260,6 +284,29 @@ export default function SessionSidebar({
             </SelectContent>
           </Select>
         </div>
+        {(["Q", "SQ"].includes(session.toUpperCase()) ) && (
+          <div className="flex flex-col gap-1.5">
+            <span className="font-mono text-[9px] font-semibold tracking-[0.25em] uppercase text-text-secondary">
+              QUALIFYING SESSIONS
+            </span>
+            <div className="flex gap-1">
+              {['Q1','Q2', 'Q3'].map((s) => {
+                const isSelected = selectedQualiSessions.includes(s as QualiSession)
+                return (
+                  <div key={s}>
+                    <button 
+                    className={cn(
+                      "border border-accent-green py-1 px-4 text-accent-green font-mono text-xs cursor-pointer",
+                      isSelected && "bg-accent-green text-black"
+                      )}
+                      onClick={() => toggleQualiSession(s as QualiSession)}
+                      >{s}</button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
       {(loadingSession || teams.length > 0) && (
         <span className="font-mono text-[9px] font-semibold tracking-[0.25em] uppercase text-data-cyan pt-4 pb-1">

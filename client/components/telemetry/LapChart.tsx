@@ -2,19 +2,24 @@
 
 import { format, type LineSeriesOption } from "echarts";
 import type { TopLevelFormatterParams } from "echarts/types/dist/shared";
-import type { Compound, Team } from "@/lib/types";
+import type { Compound, QualiSession, Team } from "@/lib/types";
 import { useCallback, useMemo } from "react";
 import Chart from "../chart/Chart";
 import { useChartSettings } from "@/lib/hooks/useChartSettings";
-import { CHART_STORAGE_KEYS, DEFAULT_NUQS_OPTIONS } from "@/lib/constants";
-import { toggleLap, parseSelectedLaps } from "@/lib/selectedLaps";
+import {
+  CHART_STORAGE_KEYS,
+  DEFAULT_NUQS_OPTIONS,
+  parseAsQualiSession,
+} from "@/lib/constants";
+import { toggleLap } from "@/lib/selectedLaps";
 import { useSessionLaps } from "@/lib/hooks/useSessionLaps";
 import { useEventSchedule } from "@/lib/hooks/useEventSchedule";
 import { useQueryClient } from "@tanstack/react-query";
 import TyreBadge from "./TyreBadge";
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup } from "react-dom/server";
 import { CompoundColor } from "@/lib/compounds";
-import { useQueryState } from 'nuqs'
+import { parseAsArrayOf, useQueryState } from "nuqs";
+import { useLapAnalysis } from "@/lib/hooks/useLapAnalysis";
 
 interface LapChartProps {
   teams: Team[];
@@ -41,22 +46,25 @@ function secondsToLapTime(seconds: number, precision = 2): string {
 export default function LapChart({ teams }: LapChartProps) {
   const settings = useChartSettings(CHART_STORAGE_KEYS.lapChart).settings;
   const queryClient = useQueryClient();
-  const [year] = useQueryState('year', DEFAULT_NUQS_OPTIONS);
-  const [event] = useQueryState('event', DEFAULT_NUQS_OPTIONS);
-  const [session] = useQueryState('session', DEFAULT_NUQS_OPTIONS);
-  const [drivers] = useQueryState('drivers', DEFAULT_NUQS_OPTIONS);
-  const [laps, setLaps] = useQueryState('laps', DEFAULT_NUQS_OPTIONS);
-  const [, setTab] = useQueryState('tab', DEFAULT_NUQS_OPTIONS)
+  const [year] = useQueryState("year", DEFAULT_NUQS_OPTIONS);
+  const [event] = useQueryState("event", DEFAULT_NUQS_OPTIONS);
+  const [session] = useQueryState("session", DEFAULT_NUQS_OPTIONS);
+  const [drivers] = useQueryState("drivers", DEFAULT_NUQS_OPTIONS);
+  const [, setLaps] = useQueryState("laps", DEFAULT_NUQS_OPTIONS);
+  const [, setTab] = useQueryState("tab", DEFAULT_NUQS_OPTIONS);
+  const defaultQualiSessions: QualiSession[] = ["Q", "SQ"].includes(session.toUpperCase())
+    ? ["Q1", "Q2", "Q3"]
+    : [];
+  const [selectedQualiSessions] = useQueryState(
+    "qualiSessions",
+    parseAsArrayOf(parseAsQualiSession)
+      .withDefault(defaultQualiSessions)
+      .withOptions(DEFAULT_NUQS_OPTIONS),
+  );
 
   const selectedDrivers = useMemo(
     () => (drivers ? drivers.split(",") : []),
     [drivers],
-  );
-
-  const driverMap = useMemo(
-    () =>
-      new Map(teams.flatMap((t) => t.drivers).map((d) => [d.abbreviation, d])),
-    [teams],
   );
 
   const { data: eventSchedule } = useEventSchedule(year, event);
@@ -73,10 +81,8 @@ export default function LapChart({ teams }: LapChartProps) {
     staleTime,
   );
 
-  const visibleLaps = useMemo(
-    () => driverLaps.filter((d) => selectedDrivers.includes(d.abbreviation)),
-    [driverLaps, selectedDrivers],
-  );
+  const { visibleLaps, driverMap, selectedLaps } =
+    useLapAnalysis(driverLaps, teams, selectedDrivers);
 
   const secondDrivers = useMemo(() => {
     const seen = new Set<string>();
@@ -94,40 +100,57 @@ export default function LapChart({ teams }: LapChartProps) {
   }, [visibleLaps, driverMap]);
 
   const chartData = useMemo(() => {
-    if (visibleLaps.length === 0) return [];
+    if (visibleLaps.length === 0) return new Map<string, { value: [number, number]; tyre: string | null }[]>();
 
-    const allTimes = visibleLaps.flatMap((d) =>
-      d.laps
-        .map((l) => lapTimeToSeconds(l.lap_time))
-        .filter((t): t is number => t !== null),
-    );
+    const isQuali = ["Q", "SQ"].includes(session.toUpperCase());
+    const filteredDriverLaps = visibleLaps.map((d) => {
+      const segments = isQuali
+        ? d.segments.filter((s) =>
+            selectedQualiSessions.includes(s.name as QualiSession),
+          )
+        : d.segments;
+      return { abbreviation: d.abbreviation, laps: segments.flatMap((s) => s.laps) };
+    });
+
+    const allTimes = filteredDriverLaps
+      .flatMap((d) => d.laps)
+      .map((l) => lapTimeToSeconds(l.lap_time))
+      .filter((t): t is number => t !== null);
 
     const fastest = Math.min(...allTimes);
     const cutoff = fastest * (1 + settings.outlierThreshold / 100);
 
-    const lapLengths = visibleLaps.map((d) => d.laps.length);
-    const maxLaps = Math.max(...lapLengths);
-
-    const allPoints = Array.from({ length: maxLaps }, (_, i) => {
-      const point: Record<string, number | string | null> = { lap: i + 1 };
-      for (const d of visibleLaps) {
-        const lap = d.laps[i];
-        const secs = lap ? lapTimeToSeconds(lap.lap_time) : null;
-        point[d.abbreviation] = secs !== null && secs <= cutoff ? secs : null;
-        point[`${d.abbreviation}_tyre`] = lap?.compound ?? null;
+    const map = new Map<string, { value: [number, number]; tyre: string | null }[]>();
+    for (const d of filteredDriverLaps) {
+      const points: { value: [number, number]; tyre: string | null }[] = [];
+      for (const lap of d.laps) {
+        if (!lap.lap_number) continue;
+        const secs = lapTimeToSeconds(lap.lap_time);
+        if (secs !== null && secs <= cutoff) {
+          points.push({
+            value: [lap.lap_number, secs],
+            tyre: lap.compound ?? null,
+          });
+        }
       }
-      return point;
-    });
-
-    return allPoints;
-  }, [visibleLaps, settings.outlierThreshold]);
+      map.set(d.abbreviation, points);
+    }
+    return map;
+  }, [
+    visibleLaps,
+    selectedQualiSessions,
+    session,
+    settings.outlierThreshold,
+  ]);
 
   const tyreIconCache = useMemo(() => {
     return Object.fromEntries(
       (Object.keys(CompoundColor) as Compound[]).map((compound) => [
         compound,
-        renderToStaticMarkup(<TyreBadge compound={compound} size={20} year={year} />),
-      ])
+        renderToStaticMarkup(
+          <TyreBadge compound={compound} size={20} year={year} />,
+        ),
+      ]),
     ) as Record<Compound, string>;
   }, [year]);
 
@@ -137,10 +160,13 @@ export default function LapChart({ teams }: LapChartProps) {
       const rows = items
         .filter((p) => p.value != null)
         .map((p) => {
-          const data = p.data as { value: [number, number]; tyre?: string | null };
+          const data = p.data as {
+            value: [number, number];
+            tyre?: string | null;
+          };
           const isSecond = secondDrivers.has(p.seriesName ?? "");
-          const tyre = data.tyre ?? '';
-          const icon = tyreIconCache[tyre as Compound] ?? '';
+          const tyre = data.tyre ?? "";
+          const icon = tyreIconCache[tyre as Compound] ?? "";
           const lineStyle = isSecond
             ? settings.secondDriverLineStyle
             : settings.firstDriverLineStyle;
@@ -214,12 +240,7 @@ export default function LapChart({ teams }: LapChartProps) {
               dashOffset: 0,
               width: settings.lineWidth,
             },
-        data: chartData
-          .filter((p) => p[d.abbreviation] != null)
-          .map((p) => ({
-            value: [p["lap"], p[d.abbreviation]] as [number, number],
-            tyre: p[`${d.abbreviation}_tyre`],
-          })),
+        data: chartData.get(d.abbreviation) ?? [],
       };
     });
   }, [
@@ -232,8 +253,6 @@ export default function LapChart({ teams }: LapChartProps) {
     settings.lineWidth,
   ]);
 
-  const selectedLaps = useMemo(() => parseSelectedLaps(laps), [laps]);
-
   const handleSeriesClick = useCallback(
     ({
       seriesName,
@@ -245,18 +264,10 @@ export default function LapChart({ teams }: LapChartProps) {
       toggleLap(
         selectedLaps,
         { year, event, session, driver: seriesName, lap: value[0] },
-        {queryClient, setLaps, setTab },
+        { queryClient, setLaps, setTab },
       );
     },
-    [
-      selectedLaps,
-      year,
-      event,
-      session,
-      queryClient,
-      setLaps,
-      setTab
-    ],
+    [selectedLaps, year, event, session, queryClient, setLaps, setTab],
   );
 
   return (

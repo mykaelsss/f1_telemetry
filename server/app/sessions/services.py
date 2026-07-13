@@ -27,9 +27,6 @@ IDENTIFIER_MAP = {
     "R": "Race",
 }
 
-# fastf1.plotting.setup_mpl(mpl_timedelta_support=True)
-
-
 def _get_session_date(event, identifier: str):
     session_name = IDENTIFIER_MAP.get(identifier.upper(), identifier)
     for i in range(1, 6):
@@ -72,9 +69,11 @@ def get_session(year: int, event_id: str, identifier: str):
         "drivers": drivers
     }
 
-def _format_laps(driver_laps: Laps) -> list:
+def _format_laps(driver_laps: Laps | None) -> list:
+    if driver_laps is None or driver_laps.empty:
+        return []
     laps = []
-    for _, lap in driver_laps.iterrows():
+    for _, lap in driver_laps.iterlaps():
         laps.append({
             "lap_number": int(lap["LapNumber"]) if not pd.isna(lap.get("LapNumber")) else None,
             "lap_time": format_lap_time(lap.get("LapTime")),
@@ -87,7 +86,8 @@ def _format_laps(driver_laps: Laps) -> list:
     return laps
 
 def get_driver_laps(year: int, event_id: str, identifier: str, drivers: str):
-    key = (year, event_id, str(identifier).upper(), drivers)
+    identifier = identifier.upper()
+    key = (year, event_id, identifier, drivers)
     with _laps_locks.get(key):
         cached = _laps_cache.get(key)
         if cached is not None:
@@ -98,12 +98,37 @@ def get_driver_laps(year: int, event_id: str, identifier: str, drivers: str):
         session = cached_locked_load(session, year, event_id, identifier, laps=True, telemetry=False, weather=False, messages=False)
         driver_laps = session.laps.pick_drivers(abbreviations)
         grouped = driver_laps.groupby("Driver")
-        result = [
-            {
+        result = []
+        
+        for abbreviation in abbreviations:
+            if abbreviation not in grouped.groups:
+                continue
+            group = grouped.get_group(abbreviation)
+            if identifier in ("Q", "SQ"):
+                q1, q2, q3 = group.split_qualifying_sessions()
+                segments = [
+                    {
+                        "name": "Q1",
+                        "laps": _format_laps(q1)
+                    },
+                    {
+                        "name": "Q2",
+                        "laps": _format_laps(q2)
+                    },
+                    {
+                        "name": "Q3",
+                        "laps": _format_laps(q3)
+                    },
+                ]
+            else:
+                segments = [{
+                    "name": identifier,
+                    "laps": _format_laps(group)
+                    }]
+            result.append({
                 "abbreviation": abbreviation,
-                "laps": _format_laps(grouped.get_group(abbreviation)) if abbreviation in grouped.groups else []
-            } for abbreviation in abbreviations
-        ]
+                "segments": segments
+            })
         _laps_cache[key] = result
         while len(_laps_cache) > _LAPS_CACHE_MAX:
             _laps_cache.popitem(last=False)
