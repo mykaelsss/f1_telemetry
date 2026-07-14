@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 
-
 class SessionDriver(BaseModel):
     number: str | None
     abbreviation: str | None
@@ -22,7 +21,6 @@ class SessionInfo(BaseModel):
     location: str
     drivers: list[SessionDriver]
 
-
 class Lap(BaseModel):
     lap_number: int | None
     lap_time: str | None
@@ -32,10 +30,13 @@ class Lap(BaseModel):
     compound: str | None
     is_personal_best: bool
 
+class Segment(BaseModel):
+    name: str
+    laps: list[Lap]
 
 class DriverLaps(BaseModel):
     abbreviation: str
-    laps: list[Lap]
+    segments: list[Segment]
 
 
 class TelemetryChannels(BaseModel):

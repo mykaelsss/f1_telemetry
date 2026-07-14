@@ -1,4 +1,4 @@
-import { Compound, Lap, Team } from "@/lib/types";
+import { Compound, Lap, QualiSession, Team } from "@/lib/types";
 import TyreBadge from "./TyreBadge";
 import { Skeleton } from "../ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
@@ -6,11 +6,15 @@ import { useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "@/lib/utils";
 import { useSessionLaps } from "@/lib/hooks/useSessionLaps";
-import { toggleLap, parseSelectedLaps, isLapSelected } from "@/lib/selectedLaps";
+import {
+  toggleLap,
+  isLapSelected,
+} from "@/lib/selectedLaps";
 import { lapTimeToMs } from "@/lib/format";
 import { useEventSchedule } from "@/lib/hooks/useEventSchedule";
-import { useQueryState } from "nuqs";
-import { DEFAULT_NUQS_OPTIONS } from "@/lib/constants";
+import { parseAsArrayOf, useQueryState } from "nuqs";
+import { DEFAULT_NUQS_OPTIONS, parseAsQualiSession } from "@/lib/constants";
+import { useLapAnalysis } from "@/lib/hooks/useLapAnalysis";
 
 function formatDelta(ms: number): string {
   return `+${(ms / 1000).toFixed(3)}`;
@@ -22,72 +26,71 @@ interface LapTableProps {
 
 export default function LapTable({ teams }: LapTableProps) {
   const queryClient = useQueryClient();
-  const [year] = useQueryState('year', DEFAULT_NUQS_OPTIONS);
-  const [event] = useQueryState('event', DEFAULT_NUQS_OPTIONS);
-  const [session] = useQueryState('session', DEFAULT_NUQS_OPTIONS);
-  const [drivers] = useQueryState('drivers', DEFAULT_NUQS_OPTIONS);
-  const [laps, setLaps] = useQueryState('laps', DEFAULT_NUQS_OPTIONS);
-  const [, setTab] = useQueryState('tab', DEFAULT_NUQS_OPTIONS)
+  const [year] = useQueryState("year", DEFAULT_NUQS_OPTIONS);
+  const [event] = useQueryState("event", DEFAULT_NUQS_OPTIONS);
+  const [session] = useQueryState("session", DEFAULT_NUQS_OPTIONS);
+  const [drivers] = useQueryState("drivers", DEFAULT_NUQS_OPTIONS);
+  const [, setLaps] = useQueryState("laps", DEFAULT_NUQS_OPTIONS);
+  const [, setTab] = useQueryState("tab", DEFAULT_NUQS_OPTIONS);
+  const defaultQualiSessions: QualiSession[] = ["Q", "SQ"].includes(session.toUpperCase())
+    ? ["Q1", "Q2", "Q3"]
+    : [];
+  const [selectedQualiSessions] = useQueryState(
+    "qualiSessions",
+    parseAsArrayOf(parseAsQualiSession)
+      .withDefault(defaultQualiSessions)
+      .withOptions(DEFAULT_NUQS_OPTIONS),
+  );
+
+  const { data: eventSchedule } = useEventSchedule(year, event);
+  const sessionStatus = eventSchedule?.sessions.find(
+    (s) => s.identifier === session,
+  )?.status;
+  const staleTime = sessionStatus === "completed" ? Infinity : 60_000;
 
   const selectedDrivers = useMemo(
     () => (drivers ? drivers.split(",") : []),
     [drivers],
   );
 
-  const selectedLaps = useMemo(() => parseSelectedLaps(laps), [laps]);
-
-  const { data: eventSchedule } = useEventSchedule(year, event);
-  const sessionStatus = eventSchedule?.sessions.find((s) => s.identifier === session)?.status;
-  const staleTime = sessionStatus === "completed" ? Infinity : 60_000;
-
-  const { driverLaps, isLoading: isLoadingLaps } = useSessionLaps(year, event, session, selectedDrivers, staleTime);
-
-  const visibleLaps = useMemo(
-    () => driverLaps.filter((d) => selectedDrivers.includes(d.abbreviation)),
-    [driverLaps, selectedDrivers],
+  const { driverLaps, isLoading: isLoadingLaps } = useSessionLaps(
+    year,
+    event,
+    session,
+    selectedDrivers,
+    staleTime,
   );
 
-  const driverMap = useMemo(
-    () =>
-      new Map(teams.flatMap((t) => t.drivers).map((d) => [d.abbreviation, d])),
-    [teams],
-  );
-
-  const overallFastest = useMemo(() => {
-    const times = visibleLaps
-      .flatMap((d) => d.laps.map((l) => lapTimeToMs(l.lap_time)))
-      .filter((ms): ms is number => ms !== null);
-    return times.length ? Math.min(...times) : null;
-  }, [visibleLaps]);
-
-  const driverFastest = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const d of visibleLaps) {
-      const times = d.laps
-        .map((l) => lapTimeToMs(l.lap_time))
-        .filter((ms): ms is number => ms !== null);
-      if (times.length) map.set(d.abbreviation, Math.min(...times));
-    }
-    return map;
-  }, [visibleLaps]);
+  const {
+    overallFastest,
+    visibleLaps,
+    driverMap,
+    driverFastest,
+    selectedLaps,
+  } = useLapAnalysis(driverLaps, teams, selectedDrivers);
 
   const lapsByNumber = useMemo(() => {
+    const isQuali = ["Q", "SQ"].includes(session.toUpperCase());
     const map = new Map<number, { abbreviation: string; lap: Lap }[]>();
     for (const d of visibleLaps) {
-      for (const lap of d.laps) {
-        const num = lap.lap_number;
-        if (!num) continue;
-        if (!map.has(num)) map.set(num, []);
-        map.get(num)!.push({ abbreviation: d.abbreviation, lap });
+      const segments = isQuali
+        ? d.segments.filter((s) =>
+            selectedQualiSessions.includes(s.name as QualiSession),
+          )
+        : d.segments;
+      for (const segment of segments) {
+        for (const lap of segment.laps) {
+          const num = lap.lap_number;
+          if (!num) continue;
+          if (!map.has(num)) map.set(num, []);
+          map.get(num)!.push({ abbreviation: d.abbreviation, lap });
+        }
       }
     }
+
     return Array.from(map.entries())
       .sort(([a], [b]) => a - b)
       .map(([lapNumber, entries]) => {
-        const times = entries
-          .map((e) => lapTimeToMs(e.lap.lap_time))
-          .filter((ms): ms is number => ms !== null);
-        const fastest = times.length ? Math.min(...times) : Infinity;
         const sorted = entries.toSorted((a, b) => {
           const aMs = lapTimeToMs(a.lap.lap_time);
           const bMs = lapTimeToMs(b.lap.lap_time);
@@ -96,9 +99,11 @@ export default function LapTable({ teams }: LapTableProps) {
           if (bMs === null) return -1;
           return aMs - bMs;
         });
+        const fastest =
+          lapTimeToMs(sorted[0]?.lap.lap_time ?? null) ?? Infinity;
         return { lapNumber, entries: sorted, fastest };
       });
-  }, [visibleLaps]);
+  }, [visibleLaps, session, selectedQualiSessions]);
 
   const rows = useMemo(() => {
     const out: (
@@ -145,10 +150,7 @@ export default function LapTable({ teams }: LapTableProps) {
         ref={scrollRef}
         className="relative w-full text-xs overflow-y-auto max-h-125"
       >
-        <div
-          ref={virtualizer.containerRef}
-          className="relative w-full"
-        >
+        <div ref={virtualizer.containerRef} className="relative w-full">
           {virtualizer.getVirtualItems().map((vi) => {
             const item = rows[vi.index];
             if (!item) return null;
@@ -175,7 +177,8 @@ export default function LapTable({ teams }: LapTableProps) {
                     const driver = driverMap.get(abbreviation);
                     const color = `#${driver?.team_color ?? "888888"}`;
                     const ms = lapTimeToMs(lap.lap_time);
-                    const isFastestOverall = ms !== null && ms === overallFastest;
+                    const isFastestOverall =
+                      ms !== null && ms === overallFastest;
                     const isDriverBest =
                       ms !== null && ms === driverFastest.get(abbreviation);
                     const deltaMs =
@@ -195,7 +198,9 @@ export default function LapTable({ teams }: LapTableProps) {
                         className={cn(
                           "group relative w-full text-left flex items-center gap-3 px-4 py-2 border-b border-surface-border/40 last:border-0 cursor-pointer hover:bg-surface-card-hover transition-colors",
                           isFastestOverall && "bg-data-violet/10",
-                          isDriverBest && !isFastestOverall && "bg-accent-green/5",
+                          isDriverBest &&
+                            !isFastestOverall &&
+                            "bg-accent-green/5",
                           isInvalid && "opacity-40",
                         )}
                         onClick={() =>

@@ -7,6 +7,7 @@ import time
 import uuid
 
 from app.utils import KeyLockRegistry
+from fastf1.core import Session
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -43,7 +44,7 @@ def _touch(path: str) -> None:
         pass
 
 
-def cached_locked_load(session, year: int, event_id: str, identifier, **load_kwargs):
+def cached_locked_load(session, year: int, event_id: str, identifier, **load_kwargs) -> Session:
     """Load a Session under a per-key lock and pin it in process memory keyed by
     (year, event_id, identifier). Subsequent requests for the same key reuse the
     already-loaded Session instead of rebuilding DataFrames via session.load().

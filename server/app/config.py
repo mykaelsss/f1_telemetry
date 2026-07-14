@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     fastf1_cache_dir: str = 'cache'
-    cors_origins: str = 'http://localhost:3000'
+    cors_origins: str = 'http://localhost:3000,http://127.0.0.1:3000'
 
     cache_high_water: float = 0.85
     cache_low_water: float = 0.70

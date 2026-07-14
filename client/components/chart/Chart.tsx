@@ -123,6 +123,7 @@ export default function Chart<T extends LegendItem>({
             alignMinLabel: "left",
             alignMaxLabel: "right",
           },
+          minInterval: 1,
           min: (value: { min: number; max: number }) => Math.floor(value.min),
           max: (value: { min: number; max: number }) => Math.ceil(value.max),
         },
@@ -136,7 +137,6 @@ export default function Chart<T extends LegendItem>({
             showMinLine: false,
             showMaxLine: false,
           },
-          minInterval: 1,
           axisLabel: {
             margin: 20,
             verticalAlignMinLabel: "bottom",

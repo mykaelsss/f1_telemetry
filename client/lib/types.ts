@@ -1,3 +1,5 @@
+import { VALID_QUALI_SESSIONS } from "./constants";
+
 export type PodiumEntry = {
   position: number;
   code: string;
@@ -52,6 +54,11 @@ export type EventSchedule = {
   date: string;
   format: string;
   sessions: Session[];
+}
+
+type SessionSegment = { 
+  name: string; 
+  laps: Lap[] 
 }
 
 export type Lap = {
@@ -120,7 +127,7 @@ export type Driver = {
 
 export type DriverLaps = {
       abbreviation: string
-      laps: Lap[]
+      segments: SessionSegment[]
   }
 
 export type TelemetrySession = {
@@ -190,3 +197,5 @@ export interface ChartSettings {
     showPitLaps: boolean
     showSafetyCar: boolean
 }
+
+export type QualiSession = typeof VALID_QUALI_SESSIONS[number]

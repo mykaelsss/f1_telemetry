@@ -1,9 +1,16 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { ChartSettings, TelemetryChannelSettings, TelemetrySettings } from "./types";
+import { ChartSettings, DriverLaps, TelemetryChannelSettings, TelemetrySettings } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+export function flattenDriverLaps(driverLaps: DriverLaps[]) {
+  return driverLaps.map((d) => ({
+    abbreviation: d.abbreviation,
+    laps: d.segments.flatMap((s) => s.laps),
+  }));
 }
 
 export const defaultTelemetryChannelSettings: TelemetryChannelSettings = {
