@@ -25,22 +25,27 @@ import { NuqsAdapter } from 'nuqs/adapters/next/app'
 export const metadata: Metadata = {
   metadataBase: new URL("https://formalytx.com"),
   title: {
-    default: "Formalytx",
+    default: "Formalytx — F1 Telemetry & Lap Data Explorer",
     template: "%s · Formalytx",
   },
-  description: "Explore Formula 1 session results, lap times, and car telemetry.",
+  description:
+    "Compare Formula 1 driver lap times, sector splits, and speed traces across every session. Explore qualifying results, race telemetry, and historical F1 data — powered by FastF1.",
+  robots: { index: true, follow: true },
+  alternates: { canonical: "https://formalytx.com" },
   openGraph: {
     type: "website",
     siteName: "Formalytx",
-    title: "Formalytx · F1 Telemetry Explorer",
-    description: "Explore Formula 1 session results, lap times, and car telemetry.",
+    title: "Formalytx — F1 Telemetry & Lap Data Explorer",
+    description:
+      "Compare Formula 1 driver lap times, sector splits, and speed traces across every session. Explore qualifying results, race telemetry, and historical F1 data — powered by FastF1.",
     url: "https://formalytx.com",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Formalytx · F1 Telemetry Explorer",
-    description: "Explore Formula 1 session results, lap times, and car telemetry.",
+    title: "Formalytx — F1 Telemetry & Lap Data Explorer",
+    description:
+      "Compare Formula 1 driver lap times, sector splits, and speed traces across every session. Explore qualifying results, race telemetry, and historical F1 data — powered by FastF1.",
   },
 };
 
