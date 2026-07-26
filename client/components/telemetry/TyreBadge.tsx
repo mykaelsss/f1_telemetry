@@ -6,15 +6,17 @@ export default function TyreBadge({
   size = 20,
   year = "2026",
 }: {
-  compound: Compound;
+  compound: Compound | null | undefined;
   size?: number;
   year?: string;
 }) {
-  const color =
-    (year === "2018"
+  const palette =
+    year === "2018"
       ? { ...CompoundColor, ...CompoundColor2018 }
-      : CompoundColor)[compound] ?? "oklch(94.01% 0.000 0)";
-  const letter = CompoundLetter[compound] ?? "?";
+      : CompoundColor;
+  const color =
+    (compound ? palette[compound] : undefined) ?? "oklch(94.01% 0.000 0)";
+  const letter = (compound ? CompoundLetter[compound] : undefined) ?? "?";
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"

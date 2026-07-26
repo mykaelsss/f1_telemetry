@@ -48,6 +48,7 @@ class TelemetryChannels(BaseModel):
     drs: list[int]
     distance: list[float]
     rpm: list[float]
+    pos_time: list[float]
     x: list[float]
     y: list[float]
 
@@ -56,6 +57,9 @@ class LapTelemetry(BaseModel):
     driver: str
     lap_number: int
     lap_time: float | None
+    sector1: float | None = None
+    sector2: float | None = None
+    sector3: float | None = None
     compound: str | None
     tyre_life: int | None
     channels: TelemetryChannels

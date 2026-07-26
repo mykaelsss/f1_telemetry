@@ -13,7 +13,7 @@ import {
 } from "@/lib/constants";
 import { toggleLap } from "@/lib/selectedLaps";
 import { useSessionLaps } from "@/lib/hooks/useSessionLaps";
-import { useEventSchedule } from "@/lib/hooks/useEventSchedule";
+import { useSessionLapsStaleTime } from "@/lib/hooks/useEventSchedule";
 import { useQueryClient } from "@tanstack/react-query";
 import TyreBadge from "./TyreBadge";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -67,11 +67,7 @@ export default function LapChart({ teams }: LapChartProps) {
     [drivers],
   );
 
-  const { data: eventSchedule } = useEventSchedule(year, event);
-  const sessionStatus = eventSchedule?.sessions.find(
-    (s) => s.identifier === session,
-  )?.status;
-  const staleTime = sessionStatus === "completed" ? Infinity : 60_000;
+  const staleTime = useSessionLapsStaleTime(year, event, session);
 
   const { driverLaps, isLoading: isLoadingLaps } = useSessionLaps(
     year,

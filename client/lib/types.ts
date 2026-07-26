@@ -79,6 +79,7 @@ export type LapChannels = {
   gear: number[]
   distance: number[]
   rpm: number[]
+  pos_time: number[]
   x: number[]
   y: number[]
 }
@@ -87,6 +88,9 @@ export type LapTelemetry = {
   driver: string,
   lap_number: number,
   lap_time: number | null,
+  sector1?: number | null,
+  sector2?: number | null,
+  sector3?: number | null,
   compound?: string | null,
   tyre_life?: number | null,
   channels: LapChannels
@@ -143,6 +147,7 @@ export type Corner = {
   x: number,
   y: number,
   number: number,
+  letter: string,
   angle: number,
   distance: number,
 }

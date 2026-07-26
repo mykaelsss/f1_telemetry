@@ -9,3 +9,15 @@ export function useEventSchedule(year: string, event: string) {
     placeholderData: (previousData) => previousData,
   });
 }
+
+export function useSessionLapsStaleTime(
+  year: string,
+  event: string,
+  session: string,
+): number {
+  const { data: eventSchedule } = useEventSchedule(year, event);
+  const sessionStatus = eventSchedule?.sessions.find(
+    (s) => s.identifier === session,
+  )?.status;
+  return sessionStatus === "completed" ? Infinity : 60_000;
+}

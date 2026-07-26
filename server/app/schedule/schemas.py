@@ -95,6 +95,7 @@ class CornerPoint(BaseModel):
     x: float
     y: float
     number: int
+    letter: str = ""
     angle: float
     distance: float
 

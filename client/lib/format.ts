@@ -22,11 +22,10 @@ export function getCornerLabel(corners: Corner[], dist: number): string {
     closest = prev;
   }
 
+  const name = `Corner ${closest.number}${(closest.letter ?? "").toUpperCase()}`;
   const offset = Math.round(dist - closest.distance);
-  if (Math.abs(offset) <= 30) return `Corner ${closest.number}`;
-  return offset > 0
-    ? `Corner ${closest.number} +${offset}m`
-    : `Corner ${closest.number} ${offset}m`;
+  if (Math.abs(offset) <= 30) return name;
+  return offset > 0 ? `${name} +${offset}m` : `${name} ${offset}m`;
 }
 
 
