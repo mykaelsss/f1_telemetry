@@ -19,6 +19,7 @@ from fastf1.exceptions import (
 )
 
 from . import config
+from app.etag import ETagMiddleware
 from app.fastf1_loader import set_cache_dir, start_pruner
 from app.sessions.routes import router as session_router
 from app.schedule.routes import router as schedule_router
@@ -85,6 +86,8 @@ for _exc in (ValueError, InvalidSessionError, NoLapDataError, SessionNotAvailabl
 app.add_exception_handler(RateLimitExceededError, _rate_limited)
 app.add_exception_handler(FastF1CriticalError, _upstream_error)
 app.add_exception_handler(ErgastError, _upstream_error)
+
+app.add_middleware(ETagMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
