@@ -162,3 +162,14 @@ def test_cache_control_for_logs_when_identifier_is_not_a_string(stub_event, capl
     with caplog.at_level(logging.ERROR, logger="uvicorn.error"):
         assert cache_control_for(2024, "r5", 1) == SETTLING
     assert "falling back to SETTLING" in caplog.text
+
+
+@pytest.mark.parametrize("directive", [LIVE, SETTLING, PAST_SEASON])
+def test_no_directive_grants_browsers_a_ttl(directive):
+    assert "max-age=0" in directive or "no-cache" in directive
+
+
+def test_directives_match_policy():
+    assert LIVE == "public, no-cache"
+    assert SETTLING == "public, max-age=0, s-maxage=3600"
+    assert PAST_SEASON == "public, max-age=0, s-maxage=604800"

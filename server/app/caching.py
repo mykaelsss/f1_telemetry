@@ -15,8 +15,8 @@ logger = logging.getLogger("uvicorn.error")
 SETTLE_BUFFER = timedelta(days=2)
 
 LIVE = "public, no-cache"
-SETTLING = "public, max-age=1800, s-maxage=3600"
-PAST_SEASON = "public, max-age=3600, s-maxage=604800"
+SETTLING = "public, max-age=0, s-maxage=3600"
+PAST_SEASON = "public, max-age=0, s-maxage=604800"
 
 
 def _session_end(year: int, event_id: str, identifier: str | int) -> datetime | None:
