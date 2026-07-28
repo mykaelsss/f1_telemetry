@@ -5,7 +5,7 @@ import os
 from contextlib import asynccontextmanager
 
 import fastf1
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -101,5 +101,7 @@ class Health(BaseModel):
 
 
 @app.get("/health", response_model=Health)
-def health():
+def health(response: Response):
+    response.headers["Cache-Control"] = "public, max-age=0, s-maxage=300"
+    response.headers["Cache-Tag"] = "health-probe"
     return {"status": "ok"}
