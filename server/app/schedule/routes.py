@@ -55,5 +55,5 @@ def podium(year: int, event_id: str, response: Response):
 @router.get("/{year}/{event_id}/circuit", response_model=CircuitInfo)
 def circuit(year: int, event_id: str, response: Response):
     data = get_circuit_info(year, event_id)
-    response.headers["Cache-Control"] = cache_control_for(year, event_id, 1)
+    response.headers["Cache-Control"] = cache_control_for(year, event_id, "FP1")
     return data

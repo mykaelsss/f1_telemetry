@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone, timedelta
 
 import pandas as pd
@@ -5,6 +6,8 @@ import pandas as pd
 from app.schedule.services import SESSION_DURATION_MINUTES
 from app.sessions.services import IDENTIFIER_MAP
 from app.utils import resolve_event
+
+logger = logging.getLogger("uvicorn.error")
 
 # Once a session ends, lap/telemetry data is fixed, but classification can still
 # shift for a while as stewards apply penalties/DSQs. Hold off on immutable
@@ -37,6 +40,12 @@ def cache_control_for(year: int, event_id: str, identifier: str) -> str:
     try:
         end = _session_end(year, event_id, identifier)
     except Exception:
+        logger.exception(
+            "Could not resolve session end for %s/%s/%s; falling back to SETTLING",
+            year,
+            event_id,
+            identifier,
+        )
         return SETTLING
     if end is None:
         return SETTLING
