@@ -13,7 +13,7 @@ NOT_MODIFIED_HEADERS = (
 
 
 def compute_etag(body: bytes) -> str:
-    return f'W/"{hashlib.blake2b(body, digest_size=16).hexdigest()}"'
+    return f'"{hashlib.blake2b(body, digest_size=16).hexdigest()}"'
 
 
 def if_none_match_hit(header: str | None, etag: str) -> bool:

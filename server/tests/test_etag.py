@@ -14,8 +14,9 @@ def schedule(monkeypatch):
     monkeypatch.setattr("app.schedule.routes.get_schedule", lambda *a, **kw: SCHEDULE)
 
 
-def test_etag_is_weak_and_stable():
-    assert compute_etag(b"payload").startswith('W/"')
+def test_etag_is_strong_and_stable():
+    tag = compute_etag(b"payload")
+    assert tag.startswith('"') and not tag.startswith('W/"')
     assert compute_etag(b"payload") == compute_etag(b"payload")
     assert compute_etag(b"payload") != compute_etag(b"other")
 
@@ -33,14 +34,14 @@ def test_etag_is_weak_and_stable():
     ],
 )
 def test_if_none_match_comparison(header, expected):
-    assert if_none_match_hit(header, 'W/"abc"') is expected
+    assert if_none_match_hit(header, '"abc"') is expected
 
 
 def test_response_carries_an_etag(client, cache_calls, schedule):
     resp = client.get("/schedule/2024")
 
     assert resp.status_code == 200
-    assert resp.headers["ETag"].startswith('W/"')
+    assert resp.headers["ETag"].startswith('"') and not resp.headers["ETag"].startswith('W/"')
 
 
 def test_matching_etag_returns_304_with_no_body(client, cache_calls, schedule):
