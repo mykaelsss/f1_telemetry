@@ -8,8 +8,10 @@ import { EChartsOption, getInstanceByDom } from "echarts";
 import { useEcharts } from "@/lib/hooks/useEcharts";
 import { defaultTelemetryChannelSettings } from "@/lib/utils";
 import type { Compound, SelectedLap, TelemetrySettings } from "@/lib/types";
-import { Eye, EyeOff, Loader2, X, ZoomOut } from "lucide-react";
+import { Eye, EyeOff, Loader2, Play, X, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import ReplayModal from "./replay/ReplayModal";
 import { toast } from "sonner";
 import {
   consumeLapAwaitingReview,
@@ -47,6 +49,9 @@ export default function TelemetryViewer() {
   const [event] = useQueryState('event', DEFAULT_NUQS_OPTIONS);
   const [laps, setLaps] = useQueryState('laps', DEFAULT_NUQS_OPTIONS);
   const [, setTab] = useQueryState('tab', DEFAULT_NUQS_OPTIONS)
+  const [replayParam, setReplayParam] = useQueryState('replay', DEFAULT_NUQS_OPTIONS);
+  const [replayTimeParam, setReplayTimeParam] = useQueryState('rt', DEFAULT_NUQS_OPTIONS);
+  const [replayLoopParam, setReplayLoopParam] = useQueryState('rl', DEFAULT_NUQS_OPTIONS);
 
   const chartRef = useEcharts();
   const hoveredSeriesRef = useRef<string | null>(null);
@@ -450,10 +455,56 @@ export default function TelemetryViewer() {
           ", ",
         )} plotted against lap distance.`;
 
+  const replayOpen = replayParam === '1' && selectedLaps.length > 0;
+  const replayInitialLoop = useMemo(() => {
+    if (!replayLoopParam) return null;
+    const parts = replayLoopParam.split(',');
+    const rawA = Number(parts[0]);
+    const rawB = Number(parts[1]);
+    if (!Number.isFinite(rawA) || !Number.isFinite(rawB)) return null;
+    const a = Math.max(0, Math.min(rawA, rawB));
+    const b = Math.max(rawA, rawB);
+    return b - a >= 0.25 ? { a, b } : null;
+  }, [replayLoopParam]);
+
+  const replayInitialTime = replayTimeParam
+    ? Math.max(0, parseFloat(replayTimeParam) || 0)
+    : (replayInitialLoop?.a ?? 0);
+
+  const handleReplayOpenChange = (next: boolean) => {
+    if (next) {
+      setReplayParam('1');
+    } else {
+      setReplayParam(null);
+      setReplayTimeParam(null);
+      setReplayLoopParam(null);
+    }
+  };
+
+  const buildShareUrl = (
+    t: number | null,
+    loop: { a: number; b: number } | null,
+  ) => {
+    if (typeof window === 'undefined') return '';
+    const url = new URL(window.location.href);
+    url.searchParams.set('replay', '1');
+    if (t === null) {
+      url.searchParams.delete('rt');
+    } else {
+      url.searchParams.set('rt', t.toFixed(3));
+    }
+    if (loop === null) {
+      url.searchParams.delete('rl');
+    } else {
+      url.searchParams.set('rl', `${loop.a.toFixed(3)},${loop.b.toFixed(3)}`);
+    }
+    return url.toString();
+  };
+
   return (
     <div className="w-full flex flex-col border border-surface-border bg-surface-card">
-      <div className="flex sm:flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2 border-b border-surface-border">
-        <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] uppercase text-text-muted">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 border-b border-surface-border">
+        <div className="flex min-w-0 items-center gap-2 font-mono text-[10px] tracking-[0.2em] uppercase text-text-muted">
           <span
             className={
               legendItems.length > 0
@@ -463,7 +514,33 @@ export default function TelemetryViewer() {
           />
           Telemetry trace · Distance (m)
         </div>
-        <div className="flex items-center gap-3">
+        <div className="ml-auto flex shrink-0 items-center gap-3">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={selectedLaps.length === 0}
+                  aria-label="Show lap replay"
+                  className="font-mono text-[10px] tracking-[0.15em] uppercase cursor-pointer text-accent-green rounded-none hover:bg-surface-card-hover hover:text-accent-green disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={() => {
+                    setTab('telemetry');
+                    setReplayTimeParam(null);
+                    setReplayParam('1');
+                  }}
+                >
+                  <Play className="size-3.5 self-center" aria-hidden="true" />
+                  <span className="h-3.5">Replay</span>
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {selectedLaps.length === 0
+                ? "Select at least one lap to replay"
+                : `Replay ${selectedLaps.length} lap${selectedLaps.length === 1 ? "" : "s"} on track`}
+            </TooltipContent>
+          </Tooltip>
           {laps && (
             <Button
               size="sm"
@@ -683,6 +760,18 @@ export default function TelemetryViewer() {
           </span>
         )}
       </div>
+      <ReplayModal
+        open={replayOpen}
+        onOpenChange={handleReplayOpenChange}
+        telemetryData={telemetryData}
+        circuit={circuitData}
+        isPending={isPending}
+        colorSlots={colorSlots}
+        customColors={customColors}
+        initialTime={replayInitialTime}
+        initialLoop={replayInitialLoop}
+        buildShareUrl={buildShareUrl}
+      />
     </div>
   );
 }

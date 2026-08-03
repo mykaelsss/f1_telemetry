@@ -287,8 +287,8 @@ def get_circuit_info(year: int, event_id: str):
 
         result = {
             "rotation": circuit_info.rotation,
-            "corners": circuit_info.corners[["X", "Y", "Number", "Angle", "Distance"]].rename(columns=str.lower).to_dict("records"),
-            "marshal_sectors": circuit_info.marshal_sectors[["X", "Y", "Number", "Angle", "Distance"]].rename(columns=str.lower).to_dict("records"),
+            "corners": circuit_info.corners[["X", "Y", "Number", "Letter", "Angle", "Distance"]].rename(columns=str.lower).to_dict("records"),
+            "marshal_sectors": circuit_info.marshal_sectors[["X", "Y", "Number", "Letter", "Angle", "Distance"]].rename(columns=str.lower).to_dict("records"),
             "sector_distances": sector_distances,
         }
         _circuit_cache[key] = result

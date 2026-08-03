@@ -215,6 +215,10 @@ def _parse_selected_laps(selected_laps: str) -> list[tuple[str, list[int]]]:
     return selections
 
 
+def _seconds(value) -> float | None:
+    return pd.Timedelta(value).total_seconds() if pd.notna(value) else None
+
+
 def _build_lap_telemetry(session, driver: str, lap_number: int) -> dict | None:
     driver_laps = session.laps.pick_drivers(driver)
     lap_rows = driver_laps[driver_laps["LapNumber"] == float(lap_number)]
@@ -223,11 +227,13 @@ def _build_lap_telemetry(session, driver: str, lap_number: int) -> dict | None:
     lap_row = lap_rows.iloc[0]
     car_data = lap_row.get_car_data().add_distance()
     pos_data = lap_row.get_pos_data()
-    lap_time = pd.Timedelta(lap_row["LapTime"]).total_seconds() if pd.notna(lap_row["LapTime"]) else None
     return {
         "driver": driver,
         "lap_number": lap_number,
-        "lap_time": lap_time,
+        "lap_time": _seconds(lap_row["LapTime"]),
+        "sector1": _seconds(lap_row.get("Sector1Time")),
+        "sector2": _seconds(lap_row.get("Sector2Time")),
+        "sector3": _seconds(lap_row.get("Sector3Time")),
         "compound": str(lap_row.get("Compound", "")) or None,
         "tyre_life": int(lap_row["TyreLife"]) if pd.notna(lap_row.get("TyreLife")) else None,
         "channels": {
@@ -239,6 +245,7 @@ def _build_lap_telemetry(session, driver: str, lap_number: int) -> dict | None:
             "drs": car_data["DRS"].tolist(),
             "distance": car_data["Distance"].tolist(),
             "rpm": car_data["RPM"].tolist(),
+            "pos_time": pos_data["Time"].dt.total_seconds().tolist(),
             "x": pos_data["X"].tolist(),
             "y": pos_data["Y"].tolist(),
         }

@@ -15,7 +15,10 @@ import { Skeleton } from "../ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { cn, flattenDriverLaps } from "@/lib/utils";
 import { useSchedule } from "@/lib/hooks/useSchedule";
-import { useEventSchedule } from "@/lib/hooks/useEventSchedule";
+import {
+  useEventSchedule,
+  useSessionLapsStaleTime,
+} from "@/lib/hooks/useEventSchedule";
 import { useSessionLaps } from "@/lib/hooks/useSessionLaps";
 import { lapTimeToMs } from "@/lib/format";
 import {
@@ -63,10 +66,7 @@ export default function SessionSidebar({
     year,
     event,
   );
-  const sessionStatus = eventSchedule?.sessions.find(
-    (s) => s.identifier === session,
-  )?.status;
-  const staleTime = sessionStatus === "completed" ? Infinity : 60_000;
+  const staleTime = useSessionLapsStaleTime(year, event, session);
 
   const toggleDriver = useCallback(
     (code: string) => {

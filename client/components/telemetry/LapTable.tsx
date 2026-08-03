@@ -11,7 +11,7 @@ import {
   isLapSelected,
 } from "@/lib/selectedLaps";
 import { lapTimeToMs } from "@/lib/format";
-import { useEventSchedule } from "@/lib/hooks/useEventSchedule";
+import { useSessionLapsStaleTime } from "@/lib/hooks/useEventSchedule";
 import { parseAsArrayOf, useQueryState } from "nuqs";
 import { DEFAULT_NUQS_OPTIONS, parseAsQualiSession } from "@/lib/constants";
 import { useLapAnalysis } from "@/lib/hooks/useLapAnalysis";
@@ -42,11 +42,7 @@ export default function LapTable({ teams }: LapTableProps) {
       .withOptions(DEFAULT_NUQS_OPTIONS),
   );
 
-  const { data: eventSchedule } = useEventSchedule(year, event);
-  const sessionStatus = eventSchedule?.sessions.find(
-    (s) => s.identifier === session,
-  )?.status;
-  const staleTime = sessionStatus === "completed" ? Infinity : 60_000;
+  const staleTime = useSessionLapsStaleTime(year, event, session);
 
   const selectedDrivers = useMemo(
     () => (drivers ? drivers.split(",") : []),
@@ -235,9 +231,7 @@ export default function LapTable({ teams }: LapTableProps) {
                           {abbreviation}
                         </span>
                         <TyreBadge
-                          compound={
-                            (lap.compound?.toUpperCase() ?? "HARD") as Compound
-                          }
+                          compound={lap.compound?.toUpperCase() as Compound}
                           size={20}
                           year={year}
                         />
